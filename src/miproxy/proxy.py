@@ -10,6 +10,9 @@ from ssl import wrap_socket
 from socket import socket
 from re import compile
 from sys import argv
+import re
+import pdb
+from ReplayCounter import ReplayCounter
 
 from OpenSSL.crypto import (X509Extension, X509, dump_privatekey, dump_certificate, load_certificate, load_privatekey,
                             PKey, TYPE_RSA, X509Req)
@@ -32,7 +35,8 @@ __all__ = [
     'ResponseInterceptorPlugin',
     'MitmProxy',
     'AsyncMitmProxy',
-    'InvalidInterceptorPluginException'
+    'InvalidInterceptorPluginException',
+    'ReplayCounter'
 ]
 
 
@@ -50,7 +54,8 @@ class CertificateAuthority(object):
     def _get_serial(self):
         s = 1
         for c in filter(lambda x: x.startswith('.pymp_'), listdir(self.cache_dir)):
-            c = load_certificate(FILETYPE_PEM, open(path.sep.join([self.cache_dir, c])).read())
+            c = load_certificate(FILETYPE_PEM, open(
+                path.sep.join([self.cache_dir, c])).read())
             sc = c.get_serial_number()
             if sc > s:
                 s = sc
@@ -74,8 +79,9 @@ class CertificateAuthority(object):
         self.cert.add_extensions([
             X509Extension("basicConstraints", True, "CA:TRUE, pathlen:0"),
             X509Extension("keyUsage", True, "keyCertSign, cRLSign"),
-            X509Extension("subjectKeyIdentifier", False, "hash", subject=self.cert),
-            ])
+            X509Extension("subjectKeyIdentifier", False,
+                          "hash", subject=self.cert),
+        ])
         self.cert.sign(self.key, "sha1")
 
         with open(self.ca_file, 'wb+') as f:
@@ -140,7 +146,8 @@ class ProxyHandler(BaseHTTPRequestHandler):
         else:
             u = urlparse(self.path)
             if u.scheme != 'http':
-                raise UnsupportedSchemeException('Unknown scheme %s' % repr(u.scheme))
+                raise UnsupportedSchemeException(
+                    'Unknown scheme %s' % repr(u.scheme))
             self.hostname = u.hostname
             self.port = u.port or 80
             self.path = urlunparse(
@@ -163,10 +170,9 @@ class ProxyHandler(BaseHTTPRequestHandler):
         if self.is_connect:
             self._proxy_sock = wrap_socket(self._proxy_sock)
 
-
     def _transition_to_ssl(self):
-        self.request = wrap_socket(self.request, server_side=True, certfile=self.server.ca[self.path.split(':')[0]])
-
+        self.request = wrap_socket(
+            self.request, server_side=True, certfile=self.server.ca[self.path.split(':')[0]])
 
     def do_CONNECT(self):
         self.is_connect = True
@@ -187,7 +193,6 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.setup()
         self.ssl_host = 'https://%s' % self.path
         self.handle_one_request()
-
 
     def do_COMMAND(self):
 
@@ -235,7 +240,12 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
     def mitm_request(self, data):
         for p in self.server._req_plugins:
-            data = p(self.server, self).do_request(data)
+            if issubclass(p, QAReplayInterceptor):
+                obj = p(self.server, self)
+                #obj.setReplayCounter(replay_counter)
+                data = obj.do_request(data)
+            else:
+                data = p(self.server, self).do_request(data)
         return data
 
     def mitm_response(self, data):
@@ -274,14 +284,16 @@ class InvalidInterceptorPluginException(Exception):
 class MitmProxy(HTTPServer):
 
     def __init__(self, server_address=('', 8080), RequestHandlerClass=ProxyHandler, bind_and_activate=True, ca_file='ca.pem'):
-        HTTPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
+        HTTPServer.__init__(self, server_address,
+                            RequestHandlerClass, bind_and_activate)
         self.ca = CertificateAuthority(ca_file)
         self._res_plugins = []
         self._req_plugins = []
 
     def register_interceptor(self, interceptor_class):
         if not issubclass(interceptor_class, InterceptorPlugin):
-            raise InvalidInterceptorPluginException('Expected type InterceptorPlugin got %s instead' % type(interceptor_class))
+            raise InvalidInterceptorPluginException(
+                'Expected type InterceptorPlugin got %s instead' % type(interceptor_class))
         if issubclass(interceptor_class, RequestInterceptorPlugin):
             self._req_plugins.append(interceptor_class)
         if issubclass(interceptor_class, ResponseInterceptorPlugin):
@@ -303,26 +315,47 @@ class MitmProxyHandler(ProxyHandler):
         return data
 
 
+class QAReplayInterceptor(RequestInterceptorPlugin, ResponseInterceptorPlugin):
+
+    def do_request(self, data):
+        pattern = re.compile('Host: ([\w\.]+)')
+        host = pattern.search(data)
+        if host:
+            print "Host: %s\n" % (host.group(1))
+            replay_counter.request_host_counter(host.group(1))
+        return data
+
+    def do_response(self, data):
+        pattern = re.compile('^HTTP/1.1 (\d{3}) .*')
+        return_code = pattern.search(data)
+        if return_code:
+            print "%s\n" % (return_code.group(1))
+            replay_counter.return_code_counter(return_code.group(1))
+        return data
+
+
 class DebugInterceptor(RequestInterceptorPlugin, ResponseInterceptorPlugin):
 
-        def do_request(self, data):
-            print '>> %s' % repr(data[:100])
-            return data
+    def do_request(self, data):
+        print '>> %s' % repr(data[:100])
+        return data
 
-        def do_response(self, data):
-            print '<< %s' % repr(data[:100])
-            return data
+    def do_response(self, data):
+        print '<< %s' % repr(data[:100])
+        return data
 
 
 if __name__ == '__main__':
     proxy = None
+    replay_counter = ReplayCounter()
     if not argv[1:]:
         proxy = AsyncMitmProxy()
     else:
         proxy = AsyncMitmProxy(ca_file=argv[1])
-    proxy.register_interceptor(DebugInterceptor)
+    proxy.register_interceptor(QAReplayInterceptor)
     try:
         proxy.serve_forever()
     except KeyboardInterrupt:
+        replay_counter.hosts_print_report()
+        replay_counter.codes_print_report()
         proxy.server_close()
-

@@ -11,5 +11,6 @@ __email__ = 'ndouba@cygnos.com'
 __status__ = 'Development'
 
 __all__ = [
-    'proxy'
+    'proxy',
+    'ReplayCounter'
 ]
