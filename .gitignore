@@ -41,3 +41,6 @@ pip-log.txt
 pyvenv.cfg
 .venv
 pip-selfcheck.json
+
+# Selenium
+selenium

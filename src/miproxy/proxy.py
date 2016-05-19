@@ -10,9 +10,7 @@ from ssl import wrap_socket
 from socket import socket
 from re import compile
 from sys import argv
-import re
-import pdb
-from ReplayCounter import ReplayCounter
+from interceptors import *
 
 from OpenSSL.crypto import (X509Extension, X509, dump_privatekey, dump_certificate, load_certificate, load_privatekey,
                             PKey, TYPE_RSA, X509Req)
@@ -36,7 +34,7 @@ __all__ = [
     'MitmProxy',
     'AsyncMitmProxy',
     'InvalidInterceptorPluginException',
-    'ReplayCounter'
+    'interceptors'
 ]
 
 
@@ -241,9 +239,10 @@ class ProxyHandler(BaseHTTPRequestHandler):
     def mitm_request(self, data):
         for p in self.server._req_plugins:
             if issubclass(p, QAReplayInterceptor):
-                obj = p(self.server, self)
-                #obj.setReplayCounter(replay_counter)
-                data = obj.do_request(data)
+                #obj = p(self.server, self)
+                # obj.setReplayCounter(replay_counter)
+                #data = obj.do_request(data)
+                data = p(self.server, self).do_request(data)
             else:
                 data = p(self.server, self).do_request(data)
         return data
@@ -257,28 +256,6 @@ class ProxyHandler(BaseHTTPRequestHandler):
         if item.startswith('do_'):
             return self.do_COMMAND
 
-
-class InterceptorPlugin(object):
-
-    def __init__(self, server, msg):
-        self.server = server
-        self.message = msg
-
-
-class RequestInterceptorPlugin(InterceptorPlugin):
-
-    def do_request(self, data):
-        return data
-
-
-class ResponseInterceptorPlugin(InterceptorPlugin):
-
-    def do_response(self, data):
-        return data
-
-
-class InvalidInterceptorPluginException(Exception):
-    pass
 
 
 class MitmProxy(HTTPServer):
@@ -315,47 +292,16 @@ class MitmProxyHandler(ProxyHandler):
         return data
 
 
-class QAReplayInterceptor(RequestInterceptorPlugin, ResponseInterceptorPlugin):
-
-    def do_request(self, data):
-        pattern = re.compile('Host: ([\w\.]+)')
-        host = pattern.search(data)
-        if host:
-            print "Host: %s\n" % (host.group(1))
-            replay_counter.request_host_counter(host.group(1))
-        return data
-
-    def do_response(self, data):
-        pattern = re.compile('^HTTP/1.1 (\d{3}) .*')
-        return_code = pattern.search(data)
-        if return_code:
-            print "%s\n" % (return_code.group(1))
-            replay_counter.return_code_counter(return_code.group(1))
-        return data
-
-
-class DebugInterceptor(RequestInterceptorPlugin, ResponseInterceptorPlugin):
-
-    def do_request(self, data):
-        print '>> %s' % repr(data[:100])
-        return data
-
-    def do_response(self, data):
-        print '<< %s' % repr(data[:100])
-        return data
-
-
 if __name__ == '__main__':
     proxy = None
-    replay_counter = ReplayCounter()
     if not argv[1:]:
         proxy = AsyncMitmProxy()
     else:
         proxy = AsyncMitmProxy(ca_file=argv[1])
     proxy.register_interceptor(QAReplayInterceptor)
+    proxy.register_interceptor(DebugInterceptor)
     try:
         proxy.serve_forever()
     except KeyboardInterrupt:
-        replay_counter.hosts_print_report()
-        replay_counter.codes_print_report()
+        replay_counter.report_qa_replay_metrics()
         proxy.server_close()
