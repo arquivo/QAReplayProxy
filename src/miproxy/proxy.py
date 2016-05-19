@@ -86,9 +86,9 @@ class CertificateAuthority(object):
             f.write(dump_privatekey(FILETYPE_PEM, self.key))
             f.write(dump_certificate(FILETYPE_PEM, self.cert))
 
-    def _read_ca(self, file):
-        self.cert = load_certificate(FILETYPE_PEM, open(file).read())
-        self.key = load_privatekey(FILETYPE_PEM, open(file).read())
+    def _read_ca(self, file_name):
+        self.cert = load_certificate(FILETYPE_PEM, open(file_name).read())
+        self.key = load_privatekey(FILETYPE_PEM, open(file_name).read())
 
     def __getitem__(self, cn):
         cnp = path.sep.join([self.cache_dir, '.pymp_%s.pem' % cn])
@@ -257,7 +257,6 @@ class ProxyHandler(BaseHTTPRequestHandler):
             return self.do_COMMAND
 
 
-
 class MitmProxy(HTTPServer):
 
     def __init__(self, server_address=('', 8080), RequestHandlerClass=ProxyHandler, bind_and_activate=True, ca_file='ca.pem'):
@@ -292,16 +291,20 @@ class MitmProxyHandler(ProxyHandler):
         return data
 
 
-if __name__ == '__main__':
+def main():
     proxy = None
     if not argv[1:]:
         proxy = AsyncMitmProxy()
     else:
         proxy = AsyncMitmProxy(ca_file=argv[1])
     proxy.register_interceptor(QAReplayInterceptor)
-    proxy.register_interceptor(DebugInterceptor)
+    #proxy.register_interceptor(DebugInterceptor)
     try:
         proxy.serve_forever()
     except KeyboardInterrupt:
         replay_counter.report_qa_replay_metrics()
         proxy.server_close()
+
+
+if __name__ == '__main__':
+    main()

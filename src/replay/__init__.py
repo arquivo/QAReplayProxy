@@ -11,5 +11,5 @@ __email__ = 'daniel.bicho@fccn.pt'
 __status__ = 'Development'
 
 __all__ = [
-    'control_browser',
+    'control_browser',    
 ]

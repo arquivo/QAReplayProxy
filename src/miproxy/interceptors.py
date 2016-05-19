@@ -79,11 +79,19 @@ class ReplayCounter():
             print k, v
 
     def report_qa_replay_metrics(self):
-        print "Host Requests distribution:\n"
-        self.hosts_print_report()
-        print "##################################\n"
-        print "Codes Responses distribution:\n"
-        self.codes_print_report()
+        fhost = open('./report_replay_hosts.txt', 'w+')
+        fcodes = open('./report_replay_codes.txt', 'w+')
+
+        fhost.write("Host Requests distribution:\n")
+
+        for k, v in self.host_count.iteritems():
+            fhost.write(str(k) + " " + str(v) + "\n")
+
+        fcodes.write("Codes Responses distribution:\n")
+
+        for k, v in self.return_codes_count.iteritems():
+            fcodes.write(str(k) + " " + str(v) + "\n")
+
 
 
 replay_counter = ReplayCounter()
