@@ -2,7 +2,7 @@
 
 __author__ = 'Daniel Bicho'
 __copyright__ = 'Copyright 2016, Arquivo.pt'
-__credits__ = ['Daniel Bicho]
+__credits__ = ['Daniel Bicho']
 
 __license__ = 'GPL'
 __version__ = '0.1'
