@@ -30,3 +30,8 @@ $ python -m miproxy.proxy
 ```
 
 This will invoke pymiproxy with the ```QAReplayInterceptor``` plugin which gather metrics about the replay and then print them to files at the end of the testing. The proxy runs at port 8080.
+
+To run browser replay:
+```bash
+$ python -m replay.control_browser test_urls.txt
+```
