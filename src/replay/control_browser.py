@@ -1,5 +1,6 @@
 """Replay each URL on a list through the replay proxy, and gather results."""
 
+from pyvirtualdisplay import Display
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import UnexpectedAlertPresentException
@@ -31,7 +32,8 @@ def main():
         "autodetect": False
     }
 
-    # Process(target=proxy.main())
+    display = Display(visible=0, size=(1024, 768))
+    display.start()
 
     browser = webdriver.Firefox()
 
@@ -51,8 +53,8 @@ def main():
         except Exception, e:
             print e
 
-    #p.terminate()
-
+    browser.quit()
+    display.stop()
 
 if __name__ == '__main__':
     main()
