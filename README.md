@@ -12,6 +12,14 @@ The following modules are required:
 
 - pyOpenSSL
 - selenium
+- pyvirtualdisplay
+
+A Display enviroment is needed to be configured.
+The recommended backend to run is Xvfb:
+```bash
+$ yum install xvfb
+```
+
 
 ##Installation
 

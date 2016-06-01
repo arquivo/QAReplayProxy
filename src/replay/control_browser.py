@@ -37,6 +37,11 @@ def main():
         "autodetect": False
     }
 
+<<<<<<< HEAD
+=======
+    display = Display(visible=0, size=(1024, 768))
+    display.start()
+>>>>>>> 6b88fa42784af186eea0b0c5b2bbe6ddb26b7d3c
 
     browser = webdriver.Firefox(
 	firefox_binary = webdriver.firefox.firefox_binary.FirefoxBinary(log_file = open('/tmp/selenium.log','a')))
