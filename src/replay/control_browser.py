@@ -37,18 +37,8 @@ def main():
         "autodetect": False
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     display = Display(visible=0, size=(1024, 768))
     display.start()
-=======
->>>>>>> 4211919... custom prefix configuration and liveleaks interception
-=======
-=======
-    display = Display(visible=0, size=(1024, 768))
-    display.start()
->>>>>>> 6b88fa42784af186eea0b0c5b2bbe6ddb26b7d3c
->>>>>>> deaef5b1922111de81971f1754d6aa1bd289fc7f
 
     browser = webdriver.Firefox(
 	firefox_binary = webdriver.firefox.firefox_binary.FirefoxBinary(log_file = open('/tmp/selenium.log','a')))
