@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import pdb
+
 
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from urlparse import urlparse, urlunparse, ParseResult
@@ -232,19 +234,20 @@ class ProxyHandler(BaseHTTPRequestHandler):
         # Let's close off the remote end
         h.close()
         self._proxy_sock.close()
+	
+	#pattern = re.compile('.*(\/noFrame\/).*')
+	pattern = re.compile('.*(\/wayback\/).*')
 
-        # Relay the message
-        self.request.sendall(self.mitm_response(res))
+	if pattern.match(self.path):
+	    # Replay the message
+	    print self.path
+            self.request.sendall(self.mitm_response(res))
+ 	else:
+	    self.send_error(100, 'liveleak')	   
 
     def mitm_request(self, data):
         for p in self.server._req_plugins:
-            if issubclass(p, QAReplayInterceptor):
-                #obj = p(self.server, self)
-                # obj.setReplayCounter(replay_counter)
-                #data = obj.do_request(data)
-                data = p(self.server, self).do_request(data)
-            else:
-                data = p(self.server, self).do_request(data)
+            data = p(self.server, self).do_request(data)
         return data
 
     def mitm_response(self, data):
@@ -298,7 +301,7 @@ def main():
     else:
         proxy = AsyncMitmProxy(ca_file=argv[1])
     proxy.register_interceptor(QAReplayInterceptor)
-    #proxy.register_interceptor(DebugInterceptor)
+    proxy.register_interceptor(DebugInterceptor)
     try:
         proxy.serve_forever()
     except KeyboardInterrupt:

@@ -1,5 +1,6 @@
 """Replay each URL on a list through the replay proxy, and gather results."""
 
+from pyvirtualdisplay import Display
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import UnexpectedAlertPresentException
@@ -18,7 +19,12 @@ def main():
     parser.add_argument('urls_list',
                         help="specify the txt file to read urls list")
 
+    parser.add_argument('prefix', help="specify the wayback prefix to build the url query")
+
     args = parser.parse_args()
+
+    display = Display(visible=0, size=(1024, 768))
+    display.start()
 
     PROXY = "localhost:8080"
 
@@ -31,18 +37,22 @@ def main():
         "autodetect": False
     }
 
-    # Process(target=proxy.main())
 
-    browser = webdriver.Firefox()
+    browser = webdriver.Firefox(
+	firefox_binary = webdriver.firefox.firefox_binary.FirefoxBinary(log_file = open('/tmp/selenium.log','a')))
 
-    browser.set_page_load_timeout(10)
+    browser.set_page_load_timeout(60)
 
     f = open(args.urls_list)
 
     for line in f.readlines():
         try:
-            browser.get('http://' + args.server +
-                        '/wayback/20141122132815/' + line)
+	    #example of prefixs
+            #browser.get('http://' + args.server +
+            #            '/noFrame/replay/20141122132815/' + line)
+            #browser.get('http://' + args.server + '/wayback/20141122132815/' + line)
+	    browser.get('http://' + str(args.server) + str(args.prefix) + str(line)
+
             time.sleep(2)
         except TimeoutException, e:
             print e
@@ -51,8 +61,8 @@ def main():
         except Exception, e:
             print e
 
-    #p.terminate()
-
+    browser.quit()
+    display.stop()
 
 if __name__ == '__main__':
     main()

@@ -1,6 +1,5 @@
 import re
 
-
 class InterceptorPlugin(object):
 
     def __init__(self, server, msg):
@@ -28,10 +27,11 @@ class DebugInterceptor(RequestInterceptorPlugin, ResponseInterceptorPlugin):
 
     def do_request(self, data):
         print '>> %s' % repr(data[:100])
-        return data
+	return data
 
     def do_response(self, data):
-        print '<< %s' % repr(data[:100])
+        print '<< %s' % repr(data[:150])
+	
         return data
 
 
