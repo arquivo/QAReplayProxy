@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-import pdb
-
-
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from urlparse import urlparse, urlunparse, ParseResult
 from SocketServer import ThreadingMixIn
@@ -17,6 +14,8 @@ from interceptors import *
 from OpenSSL.crypto import (X509Extension, X509, dump_privatekey, dump_certificate, load_certificate, load_privatekey,
                             PKey, TYPE_RSA, X509Req)
 from OpenSSL.SSL import FILETYPE_PEM
+
+import logging
 
 __author__ = 'Nadeem Douba'
 __copyright__ = 'Copyright 2012, PyMiProxy Project'
@@ -132,10 +131,10 @@ class UnsupportedSchemeException(Exception):
 
 
 class ProxyHandler(BaseHTTPRequestHandler):
-
     r = compile(r'http://[^/]+(/?.*)(?i)')
 
     def __init__(self, request, client_address, server):
+        self.logger = logging.getLogger('URL_LOGGING')
         self.is_connect = False
         BaseHTTPRequestHandler.__init__(self, request, client_address, server)
 
@@ -234,17 +233,23 @@ class ProxyHandler(BaseHTTPRequestHandler):
         # Let's close off the remote end
         h.close()
         self._proxy_sock.close()
-	
-	#pattern = re.compile('.*(\/noFrame\/).*')
-	#pattern = re.compile('.*(\/wayback\/).*')
-	pattern = re.compile('.*(\/collection_eu\/).*')
 
-	if pattern.match(self.path):
-	    # Replay the message
-	    print self.path
+        #pattern = re.compile('.*(\/noFrame\/).*')
+        #pattern = re.compile('.*(\/wayback\/).*')
+        pattern = re.compile('.*(\/collection_eu\/).*')
+
+        patternResCode = re.compile('^HTTP/1.1 (\d{3}) .*')
+        return_code = patternResCode.search(res).group(1)
+
+        self.logger.info("teste")
+        self.logger.info(self.path + ' ' + return_code)
+
+        if pattern.match(self.path):
+            # Replay the message
+            print self.path
             self.request.sendall(self.mitm_response(res))
- 	else:
-	    self.send_error(100, 'liveleak')	   
+        else:
+            self.send_error(100, 'liveleak')
 
     def mitm_request(self, data):
         for p in self.server._req_plugins:
@@ -296,6 +301,12 @@ class MitmProxyHandler(ProxyHandler):
 
 
 def main():
+    logger = logging.getLogger('URL_LOGGING')
+    logger.setLevel(logging.INFO)
+
+    fh = logging.FileHandler('url.log')
+    logger.addHandler(fh)
+
     proxy = None
     if not argv[1:]:
         proxy = AsyncMitmProxy()
