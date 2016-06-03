@@ -236,7 +236,8 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self._proxy_sock.close()
 	
 	#pattern = re.compile('.*(\/noFrame\/).*')
-	pattern = re.compile('.*(\/wayback\/).*')
+	#pattern = re.compile('.*(\/wayback\/).*')
+	pattern = re.compile('.*(\/collection_eu\/).*')
 
 	if pattern.match(self.path):
 	    # Replay the message

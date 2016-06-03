@@ -53,7 +53,7 @@ def main():
             #browser.get('http://' + args.server +
             #            '/noFrame/replay/20141122132815/' + line)
             #browser.get('http://' + args.server + '/wayback/20141122132815/' + line)
-	    browser.get('http://' + str(args.server) + str(args.prefix) + str(line)
+	    browser.get('http://' + str(args.server) + str(args.prefix) + str(line))
 
             time.sleep(2)
         except TimeoutException, e:
