@@ -6,9 +6,13 @@ from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import UnexpectedAlertPresentException
 import time
 import argparse
-from multiprocessing import Process
-from miproxy import proxy
+import threading
+from miproxy import *
 
+def launchProxy():
+    thread = threading.Thread(target = proxy.launch, args=(), kwargs={})
+    thread.daemon = True
+    thread.start()
 
 def main():
     """Entry function."""
@@ -25,6 +29,8 @@ def main():
 
     display = Display(visible=0, size=(1024, 768))
     display.start()
+
+    launchProxy()
 
     PROXY = "localhost:8080"
 
@@ -65,6 +71,7 @@ def main():
 
     browser.quit()
     display.stop()
+
 
 if __name__ == '__main__':
     main()

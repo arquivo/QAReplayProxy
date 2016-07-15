@@ -300,6 +300,27 @@ class MitmProxyHandler(ProxyHandler):
         return data
 
 
+def launch():
+    logger = logging.getLogger('URL_LOGGING')
+    logger.setLevel(logging.INFO)
+
+    fh = logging.FileHandler('url.log')
+    logger.addHandler(fh)
+
+    proxy = None
+    if not argv[1:]:
+        proxy = AsyncMitmProxy()
+    else:
+        proxy = AsyncMitmProxy(ca_file=argv[1])
+    proxy.register_interceptor(QAReplayInterceptor)
+    proxy.register_interceptor(DebugInterceptor)
+    try:
+        proxy.serve_forever()
+    except KeyboardInterrupt:
+        replay_counter.report_qa_replay_metrics()
+        proxy.server_close()
+
+
 def main():
     logger = logging.getLogger('URL_LOGGING')
     logger.setLevel(logging.INFO)
