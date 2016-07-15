@@ -1,18 +1,22 @@
 """Replay each URL on a list through the replay proxy, and gather results."""
 
+import argparse
+import threading
+import time
+
 from pyvirtualdisplay import Display
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import UnexpectedAlertPresentException
-import time
-import argparse
-import threading
+
 from miproxy import *
 
-def launchProxy():
-    thread = threading.Thread(target = proxy.launch, args=(), kwargs={})
+
+def launchProxy(filter_path):
+    thread = threading.Thread(target=proxy.main, args=(filter_path,))
     thread.daemon = True
     thread.start()
+
 
 def main():
     """Entry function."""
@@ -23,14 +27,17 @@ def main():
     parser.add_argument('urls_list',
                         help="specify the txt file to read urls list")
 
-    parser.add_argument('prefix', help="specify the wayback prefix to build the url query")
+    parser.add_argument('prefix',
+                        help="specify the wayback prefix to build the url query (example: /wayback/20141122132815)")
+    parser.add_argument('liveleaks_prefix',
+                        help="specify the prefix in which request that dont have it should be considered liveleaks (example: '.*(\/wayback\/).*')")
 
     args = parser.parse_args()
 
     display = Display(visible=0, size=(1024, 768))
     display.start()
 
-    launchProxy()
+    launchProxy(args.liveleaks_prefix)
 
     PROXY = "localhost:8080"
 
@@ -47,7 +54,7 @@ def main():
     display.start()
 
     browser = webdriver.Firefox(
-	firefox_binary = webdriver.firefox.firefox_binary.FirefoxBinary(log_file = open('/tmp/selenium.log','a')))
+        firefox_binary=webdriver.firefox.firefox_binary.FirefoxBinary(log_file=open('/tmp/selenium.log', 'a')))
 
     browser.set_page_load_timeout(60)
 
@@ -55,11 +62,10 @@ def main():
 
     for line in f.readlines():
         try:
-	    #example of prefixs
-            #browser.get('http://' + args.server +
+            # example of prefixes
+            # browser.get('http://' + args.server +
             #            '/noFrame/replay/20141122132815/' + line)
-            #browser.get('http://' + args.server + '/wayback/20141122132815/' + line)
-	    browser.get('http://' + str(args.server) + str(args.prefix) + str(line))
+            browser.get('http://' + str(args.server) + str(args.prefix) + str(line))
 
             time.sleep(2)
         except TimeoutException, e:
@@ -72,6 +78,7 @@ def main():
     browser.quit()
     display.stop()
 
+    proxy.report_metrics()
 
 if __name__ == '__main__':
     main()

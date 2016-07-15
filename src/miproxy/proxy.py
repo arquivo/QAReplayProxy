@@ -1,21 +1,21 @@
 #!/usr/bin/env python
+import logging
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
-from urlparse import urlparse, urlunparse, ParseResult
 from SocketServer import ThreadingMixIn
 from httplib import HTTPResponse
-from tempfile import gettempdir
 from os import path, listdir
-from ssl import wrap_socket
-from socket import socket
 from re import compile
+from socket import socket
+from ssl import wrap_socket
 from sys import argv
-from interceptors import *
+from tempfile import gettempdir
+from urlparse import urlparse, urlunparse, ParseResult
 
+from OpenSSL.SSL import FILETYPE_PEM
 from OpenSSL.crypto import (X509Extension, X509, dump_privatekey, dump_certificate, load_certificate, load_privatekey,
                             PKey, TYPE_RSA, X509Req)
-from OpenSSL.SSL import FILETYPE_PEM
 
-import logging
+from interceptors import *
 
 __author__ = 'Nadeem Douba'
 __copyright__ = 'Copyright 2012, PyMiProxy Project'
@@ -40,7 +40,6 @@ __all__ = [
 
 
 class CertificateAuthority(object):
-
     def __init__(self, ca_file='ca.pem', cache_dir=gettempdir()):
         self.ca_file = ca_file
         self.cache_dir = cache_dir
@@ -182,7 +181,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             # If successful, let's do this!
             self.send_response(200, 'Connection established')
             self.end_headers()
-            #self.request.sendall('%s 200 Connection established\r\n\r\n' % self.request_version)
+            # self.request.sendall('%s 200 Connection established\r\n\r\n' % self.request_version)
             self._transition_to_ssl()
         except Exception, e:
             self.send_error(500, str(e))
@@ -203,7 +202,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             except Exception, e:
                 self.send_error(500, str(e))
                 return
-            # Extract path
+                # Extract path
 
         # Build request
         req = '%s %s %s\r\n' % (self.command, self.path, self.request_version)
@@ -234,14 +233,15 @@ class ProxyHandler(BaseHTTPRequestHandler):
         h.close()
         self._proxy_sock.close()
 
-        #pattern = re.compile('.*(\/noFrame\/).*')
-        #pattern = re.compile('.*(\/wayback\/).*')
-        pattern = re.compile('.*(\/collection_eu\/).*')
+        # exclude liveleaks pattern
+        pattern = re.compile(filter_path_pattern)
+        # pattern = re.compile('.*(\/collection_eu\/).*')
+        # pattern = re.compile('.*(\/noFrame\/).*')
+        # pattern = re.compile('.*(\/wayback\/).*')
 
         patternResCode = re.compile('^HTTP/1.1 (\d{3}) .*')
         return_code = patternResCode.search(res).group(1)
 
-        self.logger.info("teste")
         self.logger.info(self.path + ' ' + return_code)
 
         if pattern.match(self.path):
@@ -267,8 +267,8 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
 
 class MitmProxy(HTTPServer):
-
-    def __init__(self, server_address=('', 8080), RequestHandlerClass=ProxyHandler, bind_and_activate=True, ca_file='ca.pem'):
+    def __init__(self, server_address=('', 8080), RequestHandlerClass=ProxyHandler, bind_and_activate=True,
+                 ca_file='ca.pem'):
         HTTPServer.__init__(self, server_address,
                             RequestHandlerClass, bind_and_activate)
         self.ca = CertificateAuthority(ca_file)
@@ -290,7 +290,6 @@ class AsyncMitmProxy(ThreadingMixIn, MitmProxy):
 
 
 class MitmProxyHandler(ProxyHandler):
-
     def mitm_request(self, data):
         print '>> %s' % repr(data[:100])
         return data
@@ -300,7 +299,13 @@ class MitmProxyHandler(ProxyHandler):
         return data
 
 
-def launch():
+def report_metrics():
+    replay_counter.report_qa_replay_metrics()
+
+def main(filter_pattern):
+    global filter_path_pattern
+    filter_path_pattern = filter_pattern
+
     logger = logging.getLogger('URL_LOGGING')
     logger.setLevel(logging.INFO)
 
@@ -319,28 +324,6 @@ def launch():
     except KeyboardInterrupt:
         replay_counter.report_qa_replay_metrics()
         proxy.server_close()
-
-
-def main():
-    logger = logging.getLogger('URL_LOGGING')
-    logger.setLevel(logging.INFO)
-
-    fh = logging.FileHandler('url.log')
-    logger.addHandler(fh)
-
-    proxy = None
-    if not argv[1:]:
-        proxy = AsyncMitmProxy()
-    else:
-        proxy = AsyncMitmProxy(ca_file=argv[1])
-    proxy.register_interceptor(QAReplayInterceptor)
-    proxy.register_interceptor(DebugInterceptor)
-    try:
-        proxy.serve_forever()
-    except KeyboardInterrupt:
-        replay_counter.report_qa_replay_metrics()
-        proxy.server_close()
-
 
 if __name__ == '__main__':
     main()
