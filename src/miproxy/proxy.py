@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import logging
+import argparse
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from SocketServer import ThreadingMixIn
 from httplib import HTTPResponse
@@ -233,18 +234,13 @@ class ProxyHandler(BaseHTTPRequestHandler):
         h.close()
         self._proxy_sock.close()
 
-        # exclude liveleaks pattern
-        pattern = re.compile(filter_path_pattern)
-        # pattern = re.compile('.*(\/collection_eu\/).*')
-        # pattern = re.compile('.*(\/noFrame\/).*')
-        # pattern = re.compile('.*(\/wayback\/).*')
-
         patternResCode = re.compile('^HTTP/1.1 (\d{3}) .*')
         return_code = patternResCode.search(res).group(1)
 
         self.logger.info(self.path + ' ' + return_code)
 
-        if pattern.match(self.path):
+        # exclude liveleaks pattern
+        if self.server.filter_path_pattern.match(self.path):
             # Replay the message
             print self.path
             self.request.sendall(self.mitm_response(res))
@@ -268,10 +264,11 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
 class MitmProxy(HTTPServer):
     def __init__(self, server_address=('', 8080), RequestHandlerClass=ProxyHandler, bind_and_activate=True,
-                 ca_file='ca.pem'):
+                 filter_path_pattern=None, ca_file='ca.pem'):
         HTTPServer.__init__(self, server_address,
                             RequestHandlerClass, bind_and_activate)
         self.ca = CertificateAuthority(ca_file)
+        self.filter_path_pattern=filter_path_pattern
         self._res_plugins = []
         self._req_plugins = []
 
@@ -302,9 +299,14 @@ class MitmProxyHandler(ProxyHandler):
 def report_metrics():
     replay_counter.report_qa_replay_metrics()
 
-def main(filter_pattern):
-    global filter_path_pattern
-    filter_path_pattern = filter_pattern
+def main(args):
+
+    try:
+        filter_regex = re.compile(args.filterpattern)
+    except:
+        print args.filterpattern +  " is not a valid regex."
+        exit(1)
+
 
     logger = logging.getLogger('URL_LOGGING')
     logger.setLevel(logging.INFO)
@@ -313,10 +315,15 @@ def main(filter_pattern):
     logger.addHandler(fh)
 
     proxy = None
-    if not argv[1:]:
+    if args.ca_file is None:
         proxy = AsyncMitmProxy()
     else:
-        proxy = AsyncMitmProxy(ca_file=argv[1])
+        if path.isfile(args.ca_file):
+            proxy = AsyncMitmProxy(filter_path_pattern=filter_regex, ca_file=args.ca_file)
+        else:
+            print args.ca_file + " is not a file"
+            exit(1)
+
     proxy.register_interceptor(QAReplayInterceptor)
     proxy.register_interceptor(DebugInterceptor)
     try:
@@ -326,4 +333,11 @@ def main(filter_pattern):
         proxy.server_close()
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='Run the Proxy.')
+    parser.add_argument('-f', '--filterpattern', type=str, required=True,
+                        help='Regex for wayback path; eg. .*(\/wayback\/).*')
+    parser.add_argument('-c', '--ca_file', type=str,
+                        help='Path to certificate')
+
+    args = parser.parse_args()
+    main(args)
